@@ -54,6 +54,7 @@ main>*:not(#report-out){display:none!important}
 .noprint{display:none!important}
 .panel{border:none;padding:0}
 }
+#notes{font:inherit;line-height:1.5;min-height:220px;overflow:hidden;resize:vertical;margin-top:0}
 </style>
 </head>
 <body>
@@ -61,7 +62,7 @@ main>*:not(#report-out){display:none!important}
 <h1>Holdings Tracker</h1>
 <p class="sub">Add any investment by hand or import a CSV. Everything stays in this browser.</p>
 
-<div class="panel"><div class="total" id="total">$0.00<small>Total cost base</small></div><div class="msg" id="tot-ret"></div></div>
+<div class="panel"><div class="total" id="total">$0.00<small>Current approximate return</small></div><div class="msg" id="tot-ret"></div></div>
 
 <h2 class="caps">Add a holding</h2>
 <h3>Enter manually</h3>
@@ -108,6 +109,9 @@ main>*:not(#report-out){display:none!important}
 
 <h2>Transactions</h2>
 <div class="panel scroll" id="txns"></div>
+
+<h2>Your current most cost-effective strategy for purchasing stock/ETF's:</h2>
+<textarea id="notes" aria-label="Your current most cost-effective strategy for purchasing stock/ETF's" placeholder="Type or paste your notes here"></textarea>
 
 <details>
 <summary>Backup and restore</summary>
@@ -159,10 +163,10 @@ function holdingsList(){
     .filter(function(a){return Math.abs(a.units)>1e-9}).sort(function(x,y){return x.type.localeCompare(y.type)||x.ticker.localeCompare(y.ticker)});
 }
 function render(){
-  var list=holdingsList(),total=0,net=0,rc=0,fees=0,any=false;
-  list.forEach(function(a){total+=a.cost;var n=netOf(a),f=feesOf(a);if(n!==undefined){net+=n;rc+=a.cost;fees+=f?f.t:0;any=true}});
-  $("total").firstChild.nodeValue=money(total);
-  $("tot-ret").textContent=any?"Net return entered: "+signed(net)+(rc>0?" ("+pct(net/rc*100)+" on those holdings)":"")+(fees>0?", after "+money(fees)+" in fees":""):"";
+  var list=holdingsList(),total=0,net=0,rc=0,fees=0,cnt=0,any=false;
+  list.forEach(function(a){total+=a.cost;var n=netOf(a),f=feesOf(a);if(n!==undefined){net+=n;rc+=a.cost;fees+=f?f.t:0;cnt++;any=true}});
+  $("total").firstChild.nodeValue=signed(net);
+  $("tot-ret").textContent=any?"Total of net returns after "+money(fees)+" in fees, across "+cnt+(cnt===1?" holding":" holdings")+" with a return or fee entered"+(rc>0?" ("+pct(net/rc*100)+" on their cost base)":"")+".":"Enter returns and fees in the Holdings table to see this total.";
   $("holdings").innerHTML=list.length?"<table><tr><th>Ticker</th><th class='l'>Type</th><th>Units</th><th>Avg cost</th><th>Cost base</th><th>Return ($)</th><th>Initial fee ($)</th><th>Selling fee ($)</th><th>Annual fee (%)</th><th>Net return ($)</th><th>Net %</th><th></th></tr>"+
     list.map(function(a){var n=netOf(a),t=esc(a.ticker),f=FEE[a.k]||{};return "<tr><td>"+t+"</td><td class='l'>"+esc(a.type)+"</td><td>"+(+a.units.toFixed(6))+"</td><td>"+money(a.avg)+"</td><td>"+money(a.cost)+"</td><td>"+inp("data-k",a.k,RET[a.k],"Current return in dollars for "+t)+"</td><td>"+finp(a.k,"i",f.i,"Initial fee in dollars for "+t)+"</td><td>"+finp(a.k,"s",f.s,"Selling fee in dollars for "+t)+"</td><td>"+finp(a.k,"a",f.a,"Annual fee percent for "+t)+"</td><td>"+(n!==undefined?signed(n):"")+"</td><td>"+(n!==undefined&&a.cost>0?pct(n/a.cost*100):"")+"</td><td>"+chartLink(a)+"</td></tr>"}).join("")+"</table>"
     :"<div class='empty'>No holdings yet. Add one above or import a CSV.</div>";
@@ -282,17 +286,22 @@ function buildReport(w){
 }
 
 /* Backup */
-$("copy").onclick=function(){var t=JSON.stringify({rows:rows,returns:RET,fees:FEE});$("bk").value=t;
+$("copy").onclick=function(){var t=JSON.stringify({rows:rows,returns:RET,fees:FEE,notes:nb.value});$("bk").value=t;
   var done=function(){$("bk-msg").textContent="Backup copied."};
   try{navigator.clipboard.writeText(t).then(done,function(){$("bk").select();$("bk-msg").textContent="Select and copy the text above."})}catch(e){$("bk").select();$("bk-msg").textContent="Select and copy the text above."}};
-$("restore").onclick=function(){try{var d=JSON.parse($("bk").value);if(Array.isArray(d)){rows=d}else if(d&&Array.isArray(d.rows)){rows=d.rows;RET=d.returns||{};FEE=d.fees||{};fixFee();saveRet()}else throw 0;save();render();$("bk-msg").textContent="Restored "+rows.length+" transactions."}catch(e){$("bk-msg").textContent="That text isn't a valid backup."}};
+$("restore").onclick=function(){try{var d=JSON.parse($("bk").value);if(Array.isArray(d)){rows=d}else if(d&&Array.isArray(d.rows)){rows=d.rows;RET=d.returns||{};FEE=d.fees||{};fixFee();saveRet();if(typeof d.notes==="string"){nb.value=d.notes;try{localStorage.setItem("holdings.notes",d.notes)}catch(e){}grow()}}else throw 0;save();render();$("bk-msg").textContent="Restored "+rows.length+" transactions."}catch(e){$("bk-msg").textContent="That text isn't a valid backup."}};
 $("wipe").onclick=function(){if(confirm("Delete all holdings and transactions from this browser?")){rows=[];RET={};FEE={};save();saveRet();render();$("bk-msg").textContent="All data deleted."}};
 
 $("chart-site").innerHTML=Object.keys(CHARTS).map(function(k){return "<option"+(k===SITE?" selected":"")+">"+k+"</option>"}).join("");
 $("chart-site").onchange=function(){SITE=this.value;try{localStorage.setItem("holdings.chart",SITE)}catch(e){}render()};
 if(LAST.type){$("f-type").value=$("i-type").value=LAST.type}
 if(LAST.acct){$("f-acct").value=$("i-acct").value=LAST.acct}
-render();
+var nb=$("notes");
+function grow(){nb.style.height="auto";nb.style.height=Math.max(nb.scrollHeight,220)+"px"}
+try{nb.value=localStorage.getItem("holdings.notes")||""}catch(e){}
+nb.addEventListener("input",function(){grow();try{localStorage.setItem("holdings.notes",nb.value)}catch(e){}});
+window.addEventListener("resize",grow);
+render();grow();
 })();
 if("serviceWorker" in navigator&&location.protocol!=="file:"){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 </script>
