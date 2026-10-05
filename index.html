@@ -71,7 +71,7 @@ main>*:not(#report-out){display:none!important}
 <label>Ticker or name<input id="f-ticker" placeholder="VGS"></label>
 <label>Platform (required)<input id="f-acct" list="accts" placeholder="Vanguard" required></label>
 <label>Buy or sell<select id="f-side"><option>Buy</option><option>Sell</option></select></label>
-<label>Date<input id="f-date" type="date"></label>
+<label>Trade date<input id="f-date" type="date"></label>
 <label>Units<input id="f-units" type="number" step="any" min="0"></label>
 <label>Price per unit<input id="f-price" type="number" step="any" min="0"></label>
 </div>
@@ -90,7 +90,7 @@ main>*:not(#report-out){display:none!important}
 <label>CSV file<input id="i-file" type="file" accept=".csv,text/csv"></label>
 </div>
 <div id="map"></div>
-<div class="msg" id="imp-msg">Choose a file, then match its columns to the fields below. Run the import once per type or platform.</div>
+<div class="msg" id="imp-msg">Choose a file, then type the matching column heading from your file into each box. Run the import once per type or platform.</div>
 </div>
 
 <h2>Holdings</h2>
@@ -197,7 +197,7 @@ function num(s){if(s==null)return NaN;var neg=/^\(.*\)$/.test(s.trim());var v=pa
 function dt(s){s=(s||"").trim();var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
   if(m){var y=m[3].length===2?"20"+m[3]:m[3];return y+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2)}
   m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:""}
-var FIELDS=[["ticker","Ticker or name",/code|ticker|symbol|security|asset|instrument|name/i,1],["date","Date",/date|trade/i,0],["units","Units",/unit|qty|quantity|shares/i,1],["price","Price per unit",/price|rate|cost/i,1],["side","Buy or sell (optional)",/action|side|type|buy|sell|transaction/i,0]];
+var FIELDS=[["ticker","Ticker or name",/code|ticker|symbol|security|asset|instrument|name/i,1],["date","Trade date",/date|trade/i,0],["units","Units",/^(?!.*(price|value|cost|rate)).*(unit|qty|quantity|shares)/i,1],["price","Price per unit",/price/i,1],["side","Buy or sell (optional)",/action|side|type|buy|sell|transaction/i,0]];
 $("i-file").onchange=function(){
   var f=this.files[0];if(!f)return;
   var rd=new FileReader();
@@ -205,19 +205,20 @@ $("i-file").onchange=function(){
     csv=parseCSV(String(rd.result));
     if(csv.length<2){$("map").innerHTML="";$("imp-msg").className="msg err";$("imp-msg").textContent="That file has no data rows.";return}
     var h=csv[0],used={};
-    $("map").innerHTML="<div class='grid' style='margin-top:12px'>"+FIELDS.map(function(F){
+    $("map").innerHTML="<p class='msg' style='margin:12px 0 0'>Headings in your file: "+h.map(esc).join(", ")+"</p><div class='grid' style='margin-top:10px'>"+FIELDS.map(function(F){
       var g=-1;h.forEach(function(x,j){if(g<0&&!used[j]&&F[2].test(x)){g=j}});if(g>=0)used[g]=1;
-      return "<label>"+F[1]+"<select data-f='"+F[0]+"'><option value='-1'>"+(F[3]?"Choose column":"None")+"</option>"+h.map(function(x,j){return "<option value='"+j+"'"+(j===g?" selected":"")+">"+esc(x)+"</option>"}).join("")+"</select></label>"}).join("")+
+      return "<label>"+F[1]+"<input type='text' data-f='"+F[0]+"' value='"+(g>=0?esc(h[g]):"")+"' placeholder='"+(F[3]?"Column heading":"Optional")+"'></label>"}).join("")+
       "</div><div class='row'><button id='go'>Import "+(csv.length-1)+" rows</button></div>";
-    $("imp-msg").className="msg";$("imp-msg").textContent="Check the column matches, then import. Rows already in the app are skipped.";
+    $("imp-msg").className="msg";$("imp-msg").textContent="Check each box holds the right column heading from your file, then import. Rows already in the app are skipped.";
     $("go").onclick=doImport;
   };
   rd.readAsText(f);
 };
 function doImport(){
-  var col={};document.querySelectorAll("#map select").forEach(function(s){col[s.getAttribute("data-f")]=+s.value});
+  var col={};var hd=csv[0].map(function(x){return x.trim().toLowerCase()}),miss=[];document.querySelectorAll("#map input").forEach(function(s){var v=s.value.trim().toLowerCase(),f=s.getAttribute("data-f");if(!v){col[f]=-1;return}var j=hd.indexOf(v);if(j<0)miss.push(s.value.trim());col[f]=j});
   var m=$("imp-msg");
-  if(col.ticker<0||col.units<0||col.price<0){m.className="msg err";m.textContent="Match the ticker, units and price columns first.";return}
+  if(miss.length){m.className="msg err";m.textContent="No column called "+miss.join(", ")+" in this file. Check the spelling against the headings listed above.";return}
+  if(col.ticker<0||col.units<0||col.price<0){m.className="msg err";m.textContent="Fill in the column headings for ticker, units and price first.";return}
   var type=$("i-type").value.trim()||"Other",acct=$("i-acct").value.trim(),seen={},added=0,skipped=0,bad=0;
   if(!acct){m.className="msg err";m.textContent="Enter the platform these rows came from.";return}
   rows.forEach(function(r){seen[sig(r)]=1});
