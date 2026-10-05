@@ -48,11 +48,18 @@ th{font-weight:600;color:var(--muted)}
 details{margin-top:28px}summary{cursor:pointer;font-weight:600}
 textarea{width:100%;min-height:90px;margin-top:8px;font:12px/1.4 ui-monospace,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
 td input.ret{width:110px;margin:0;padding:5px 8px;text-align:right}
+.po{display:none}
+#notes-print{white-space:pre-wrap;overflow-wrap:anywhere}
 @media print{
 html:root:root:root{--bg:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#bbb}
-main>*:not(#report-out){display:none!important}
-.noprint{display:none!important}
+html.print-report main>*:not(#report-out){display:none!important}
+.noprint,button,details{display:none!important}
+.po{display:block}
+#notes{display:none}
 .panel{border:none;padding:0}
+.scroll{overflow:visible}
+tr{break-inside:avoid}
+h2,h3{break-after:avoid}
 }
 #notes{font:inherit;line-height:1.5;min-height:220px;overflow:hidden;resize:vertical;margin-top:0}
 </style>
@@ -61,6 +68,8 @@ main>*:not(#report-out){display:none!important}
 <main>
 <h1>Holdings Tracker</h1>
 <p class="sub">Add any investment by hand or import a CSV. Everything stays in this browser.</p>
+<div class="po" id="print-date"></div>
+<div class="row noprint" style="margin:0 0 14px"><button class="ghost" id="print-view">Print current view</button></div>
 
 <div class="panel"><div class="total" id="total">$0.00<small>Current approximate return</small></div><div class="msg" id="tot-ret"></div></div>
 
@@ -112,6 +121,7 @@ main>*:not(#report-out){display:none!important}
 
 <h2>Your current most cost-effective strategy for purchasing stock/ETF's:</h2>
 <textarea id="notes" aria-label="Your current most cost-effective strategy for purchasing stock/ETF's" placeholder="Type or paste your notes here"></textarea>
+<div id="notes-print" class="po"></div>
 
 <details>
 <summary>Backup and restore</summary>
@@ -276,7 +286,7 @@ function buildReport(w){
   h+="<div class='row noprint'><button id='rep-print'>Print or save as PDF</button><button class='ghost' id='rep-copy'>Copy as text</button></div><div class='msg noprint' id='rep-msg'></div></div>";
   out.innerHTML=h;
   var text=tx.join("\n");
-  $("rep-print").onclick=function(){try{window.print()}catch(e){$("rep-msg").textContent="Printing isn't available here. Use Copy as text instead."}};
+  $("rep-print").onclick=function(){try{document.documentElement.classList.add("print-report");window.print()}catch(e){$("rep-msg").textContent="Printing isn't available here. Use Copy as text instead."}};
   $("rep-copy").onclick=function(){
     var ok=function(){$("rep-msg").textContent="Report copied."};
     var fb=function(){$("rep-msg").innerHTML="Select and copy the text below.<textarea readonly id='rep-ta'></textarea>";var ta=$("rep-ta");ta.value=text;ta.select()};
@@ -301,6 +311,9 @@ function grow(){nb.style.height="auto";nb.style.height=Math.max(nb.scrollHeight,
 try{nb.value=localStorage.getItem("holdings.notes")||""}catch(e){}
 nb.addEventListener("input",function(){grow();try{localStorage.setItem("holdings.notes",nb.value)}catch(e){}});
 window.addEventListener("resize",grow);
+$("print-view").onclick=function(){document.documentElement.classList.remove("print-report");try{window.print()}catch(e){alert("Printing isn't available in this view. Open the page in your browser or the installed app to print.")}};
+window.addEventListener("beforeprint",function(){nb.style.height="auto";$("notes-print").textContent=nb.value;$("print-date").textContent="Printed "+new Date().toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})});
+window.addEventListener("afterprint",function(){document.documentElement.classList.remove("print-report");grow()});
 render();grow();
 })();
 if("serviceWorker" in navigator&&location.protocol!=="file:"){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
