@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Holdings Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f6b5c">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Holdings">
+<style>
+:root{--bg:#f5f6f3;--surface:#fff;--ink:#1b2421;--muted:#667069;--line:#dde1db;--accent:#0f6b5c;--accent-ink:#fff;--bad:#b3412e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121816;--surface:#1b2320;--ink:#e8ede9;--muted:#9aa59e;--line:#2c3733;--accent:#4fb59f;--accent-ink:#0b1512;--bad:#e07a66}}
+:root[data-theme="dark"]{--bg:#121816;--surface:#1b2320;--ink:#e8ede9;--muted:#9aa59e;--line:#2c3733;--accent:#4fb59f;--accent-ink:#0b1512;--bad:#e07a66}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:1.05rem;margin:28px 0 10px}
+h2.caps{text-transform:uppercase;letter-spacing:.04em}
+h3{font-size:.95rem;margin:0 0 8px}
+.or{text-align:center;font-weight:600;color:var(--muted);margin:20px 0 14px}
+p.sub{margin:0 0 18px;color:var(--muted)}
+.total{font-size:2rem;font-weight:650;font-variant-numeric:tabular-nums}
+.total small{display:block;font-size:.85rem;font-weight:400;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+label{display:block;font-size:.85rem;color:var(--muted)}
+input,select{width:100%;margin-top:3px;padding:8px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;padding:9px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button.del{padding:2px 8px;border-color:var(--line);color:var(--muted);background:transparent}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.92rem}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+th{font-weight:600;color:var(--muted)}
+.empty{color:var(--muted);padding:14px 0}
+.msg{margin-top:10px;font-size:.9rem;color:var(--muted)}
+.msg.err{color:var(--bad)}
+details{margin-top:28px}summary{cursor:pointer;font-weight:600}
+textarea{width:100%;min-height:90px;margin-top:8px;font:12px/1.4 ui-monospace,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>Holdings Tracker</h1>
+<p class="sub">Add any investment by hand or import a CSV. Everything stays in this browser.</p>
+
+<div class="panel"><div class="total" id="total">$0.00<small>Total cost base</small></div></div>
+
+<h2 class="caps">Add a holding</h2>
+<h3>Enter manually</h3>
+<div class="panel">
+<div class="grid">
+<label>Type<input id="f-type" list="types" value="ETF"></label>
+<label>Ticker or name<input id="f-ticker" placeholder="VGS"></label>
+<label>Platform (required)<input id="f-acct" list="accts" placeholder="Vanguard" required></label>
+<label>Buy or sell<select id="f-side"><option>Buy</option><option>Sell</option></select></label>
+<label>Date<input id="f-date" type="date"></label>
+<label>Units<input id="f-units" type="number" step="any" min="0"></label>
+<label>Price per unit<input id="f-price" type="number" step="any" min="0"></label>
+</div>
+<div class="row"><button id="add">Add holding</button></div>
+<div class="msg" id="add-msg"></div>
+</div>
+<datalist id="types"><option>ETF</option><option>Stock</option><option>Bond</option><option>Managed fund</option><option>Crypto</option><option>Property</option><option>Cash</option><option>Other</option></datalist>
+<datalist id="accts"></datalist>
+
+<div class="or">OR</div>
+<h3>Import from CSV</h3>
+<div class="panel">
+<div class="grid">
+<label>Type for these rows<input id="i-type" list="types" value="ETF"></label>
+<label>Platform (required)<input id="i-acct" list="accts" placeholder="nabtrade" required></label>
+<label>CSV file<input id="i-file" type="file" accept=".csv,text/csv"></label>
+</div>
+<div id="map"></div>
+<div class="msg" id="imp-msg">Choose a file, then match its columns to the fields below. Run the import once per type or platform.</div>
+</div>
+
+<h2>Holdings</h2>
+<label style="max-width:240px;margin-bottom:10px">Chart links open on<select id="chart-site"></select></label>
+<div class="panel scroll" id="holdings"></div>
+
+<h2>Transactions</h2>
+<div class="panel scroll" id="txns"></div>
+
+<details>
+<summary>Backup and restore</summary>
+<p class="sub">Browsers can clear stored data. Copy the backup text somewhere safe, and paste it back here to restore.</p>
+<div class="row"><button class="ghost" id="copy">Copy backup</button><button class="ghost" id="restore">Restore from text</button><button class="ghost" id="wipe">Delete all data</button></div>
+<textarea id="bk" aria-label="Backup text"></textarea>
+<div class="msg" id="bk-msg"></div>
+</details>
+</main>
+
+<script>
+(function(){
+var KEY="holdings.v1", rows=[], csv=null;
+try{rows=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){rows=[]}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(rows))}catch(e){}}
+var CHARTS={"Google Finance":function(t){return "https://www.google.com/finance/quote/"+t+":ASX"},"TradingView":function(t){return "https://www.tradingview.com/chart/?symbol=ASX%3A"+t},"Yahoo Finance":function(t){return "https://finance.yahoo.com/quote/"+t+".AX"},"Market Index":function(t){return "https://www.marketindex.com.au/asx/"+t.toLowerCase()}};
+var SITE="Google Finance";try{SITE=localStorage.getItem("holdings.chart")||SITE}catch(e){}
+if(!CHARTS[SITE])SITE="Google Finance";
+function chartLink(a){if(!/^[A-Z0-9]{3,4}$/.test(a.ticker)||/crypto|cash|property/i.test(a.type))return "";return "<a href='"+CHARTS[SITE](a.ticker)+"' target='_blank' rel='noopener noreferrer'>Chart</a>"}
+var LAST={};try{LAST=JSON.parse(localStorage.getItem("holdings.last")||"{}")||{}}catch(e){LAST={}}
+function remember(t,a){LAST={type:t,acct:a};try{localStorage.setItem("holdings.last",JSON.stringify(LAST))}catch(e){}}
+function $(id){return document.getElementById(id)}
+function money(n){return (n<0?"-":"")+"$"+Math.abs(n).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function sig(r){return [r.type,r.acct,r.ticker,r.side,r.date,r.units,r.price].join("|").toLowerCase()}
+
+function render(){
+  var agg={}, total=0;
+  rows.forEach(function(r){
+    var k=r.type+"|"+r.ticker, a=agg[k]||(agg[k]={type:r.type,ticker:r.ticker,bu:0,bc:0,su:0});
+    if(r.side==="Sell"){a.su+=r.units}else{a.bu+=r.units;a.bc+=r.units*r.price}
+  });
+  var list=Object.keys(agg).map(function(k){var a=agg[k];a.units=a.bu-a.su;a.avg=a.bu?a.bc/a.bu:0;a.cost=a.units*a.avg;return a})
+    .filter(function(a){return Math.abs(a.units)>1e-9}).sort(function(x,y){return x.type.localeCompare(y.type)||x.ticker.localeCompare(y.ticker)});
+  list.forEach(function(a){total+=a.cost});
+  $("total").firstChild.nodeValue=money(total);
+  $("holdings").innerHTML=list.length?"<table><tr><th>Ticker</th><th class='l'>Type</th><th>Units</th><th>Avg cost</th><th>Cost base</th><th></th></tr>"+
+    list.map(function(a){return "<tr><td>"+esc(a.ticker)+"</td><td class='l'>"+esc(a.type)+"</td><td>"+(+a.units.toFixed(6))+"</td><td>"+money(a.avg)+"</td><td>"+money(a.cost)+"</td><td>"+chartLink(a)+"</td></tr>"}).join("")+"</table>"
+    :"<div class='empty'>No holdings yet. Add one above or import a CSV.</div>";
+  var sorted=rows.map(function(r,i){return{r:r,i:i}}).sort(function(a,b){return (b.r.date||"").localeCompare(a.r.date||"")});
+  $("txns").innerHTML=rows.length?"<table><tr><th>Date</th><th class='l'>Ticker</th><th class='l'>Platform</th><th class='l'>Side</th><th>Units</th><th>Price</th><th></th></tr>"+
+    sorted.map(function(o){var r=o.r;return "<tr><td>"+esc(r.date||"")+"</td><td class='l'>"+esc(r.ticker)+"</td><td class='l'>"+esc(r.acct||"")+"</td><td class='l'>"+r.side+"</td><td>"+r.units+"</td><td>"+money(r.price)+"</td><td><button class='del' data-i='"+o.i+"' aria-label='Delete transaction'>Delete</button></td></tr>"}).join("")+"</table>"
+    :"<div class='empty'>Nothing recorded yet.</div>";
+  var accts={};rows.forEach(function(r){if(r.acct)accts[r.acct]=1});
+  $("accts").innerHTML=Object.keys(accts).map(function(a){return "<option>"+esc(a)+"</option>"}).join("");
+}
+
+$("txns").addEventListener("click",function(e){var i=e.target.getAttribute&&e.target.getAttribute("data-i");if(i!==null&&i!==undefined){rows.splice(+i,1);save();render()}});
+
+$("add").onclick=function(){
+  var r={type:$("f-type").value.trim()||"Other",ticker:$("f-ticker").value.trim().toUpperCase(),acct:$("f-acct").value.trim(),side:$("f-side").value,date:$("f-date").value,units:parseFloat($("f-units").value),price:parseFloat($("f-price").value)};
+  var m=$("add-msg");m.className="msg";
+  if(!r.acct){m.className="msg err";m.textContent="Enter the platform this holding is on.";return}
+  if(!r.ticker||!(r.units>0)||!(r.price>=0)){m.className="msg err";m.textContent="Enter a ticker or name, units above zero, and a price.";return}
+  rows.push(r);save();remember(r.type,r.acct);$("i-type").value=r.type;$("i-acct").value=r.acct;render();m.textContent="Added "+r.ticker+".";
+  $("f-ticker").value="";$("f-units").value="";$("f-price").value="";
+};
+
+/* CSV */
+function parseCSV(t){
+  var out=[],row=[],f="",q=false,i=0,c;
+  t=t.replace(/^\uFEFF/,"");
+  for(;i<t.length;i++){c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;
+    else if(c===","){row.push(f);f=""}
+    else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;row.push(f);f="";if(row.some(function(x){return x.trim()!==""}))out.push(row);row=[]}
+    else f+=c}
+  row.push(f);if(row.some(function(x){return x.trim()!==""}))out.push(row);
+  return out;
+}
+function num(s){if(s==null)return NaN;var neg=/^\(.*\)$/.test(s.trim());var v=parseFloat(String(s).replace(/[^0-9.\-]/g,""));return neg?-Math.abs(v):v}
+function dt(s){s=(s||"").trim();var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(m){var y=m[3].length===2?"20"+m[3]:m[3];return y+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2)}
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:""}
+var FIELDS=[["ticker","Ticker or name",/code|ticker|symbol|security|asset|instrument|name/i,1],["date","Date",/date|trade/i,0],["units","Units",/unit|qty|quantity|shares/i,1],["price","Price per unit",/price|rate|cost/i,1],["side","Buy or sell (optional)",/action|side|type|buy|sell|transaction/i,0]];
+$("i-file").onchange=function(){
+  var f=this.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    csv=parseCSV(String(rd.result));
+    if(csv.length<2){$("map").innerHTML="";$("imp-msg").className="msg err";$("imp-msg").textContent="That file has no data rows.";return}
+    var h=csv[0],used={};
+    $("map").innerHTML="<div class='grid' style='margin-top:12px'>"+FIELDS.map(function(F){
+      var g=-1;h.forEach(function(x,j){if(g<0&&!used[j]&&F[2].test(x)){g=j}});if(g>=0)used[g]=1;
+      return "<label>"+F[1]+"<select data-f='"+F[0]+"'><option value='-1'>"+(F[3]?"Choose column":"None")+"</option>"+h.map(function(x,j){return "<option value='"+j+"'"+(j===g?" selected":"")+">"+esc(x)+"</option>"}).join("")+"</select></label>"}).join("")+
+      "</div><div class='row'><button id='go'>Import "+(csv.length-1)+" rows</button></div>";
+    $("imp-msg").className="msg";$("imp-msg").textContent="Check the column matches, then import. Rows already in the app are skipped.";
+    $("go").onclick=doImport;
+  };
+  rd.readAsText(f);
+};
+function doImport(){
+  var col={};document.querySelectorAll("#map select").forEach(function(s){col[s.getAttribute("data-f")]=+s.value});
+  var m=$("imp-msg");
+  if(col.ticker<0||col.units<0||col.price<0){m.className="msg err";m.textContent="Match the ticker, units and price columns first.";return}
+  var type=$("i-type").value.trim()||"Other",acct=$("i-acct").value.trim(),seen={},added=0,skipped=0,bad=0;
+  if(!acct){m.className="msg err";m.textContent="Enter the platform these rows came from.";return}
+  rows.forEach(function(r){seen[sig(r)]=1});
+  csv.slice(1).forEach(function(c){
+    var u=num(c[col.units]),p=num(c[col.price]),t=(c[col.ticker]||"").trim().toUpperCase();
+    var side=(col.side>=0&&/sell|sold/i.test(c[col.side]||""))||u<0?"Sell":"Buy";
+    if(!t||isNaN(u)||isNaN(p)||u===0){bad++;return}
+    var r={type:type,ticker:t,acct:acct,side:side,date:col.date>=0?dt(c[col.date]):"",units:Math.abs(u),price:Math.abs(p)};
+    if(seen[sig(r)]){skipped++;return}
+    seen[sig(r)]=1;rows.push(r);added++;
+  });
+  save();remember(type,acct);$("f-type").value=type;$("f-acct").value=acct;render();m.className="msg";
+  m.textContent="Added "+added+" rows"+(skipped?", skipped "+skipped+" duplicates":"")+(bad?", ignored "+bad+" unreadable rows":"")+".";
+}
+
+/* Backup */
+$("copy").onclick=function(){var t=JSON.stringify(rows);$("bk").value=t;
+  var done=function(){$("bk-msg").textContent="Backup copied."};
+  try{navigator.clipboard.writeText(t).then(done,function(){$("bk").select();$("bk-msg").textContent="Select and copy the text above."})}catch(e){$("bk").select();$("bk-msg").textContent="Select and copy the text above."}};
+$("restore").onclick=function(){try{var d=JSON.parse($("bk").value);if(!Array.isArray(d))throw 0;rows=d;save();render();$("bk-msg").textContent="Restored "+d.length+" transactions."}catch(e){$("bk-msg").textContent="That text isn't a valid backup."}};
+$("wipe").onclick=function(){if(confirm("Delete all holdings and transactions from this browser?")){rows=[];save();render();$("bk-msg").textContent="All data deleted."}};
+
+$("chart-site").innerHTML=Object.keys(CHARTS).map(function(k){return "<option"+(k===SITE?" selected":"")+">"+k+"</option>"}).join("");
+$("chart-site").onchange=function(){SITE=this.value;try{localStorage.setItem("holdings.chart",SITE)}catch(e){}render()};
+if(LAST.type){$("f-type").value=$("i-type").value=LAST.type}
+if(LAST.acct){$("f-acct").value=$("i-acct").value=LAST.acct}
+render();
+})();
+if("serviceWorker" in navigator&&location.protocol!=="file:"){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+</script>
+</body>
+</html>
