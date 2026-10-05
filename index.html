@@ -100,7 +100,7 @@ main>*:not(#report-out){display:none!important}
 <h2>Report</h2>
 <div class="panel">
 <p class="sub" style="margin:0 0 12px">Create a summary of every holding in the app.</p>
-<div class="row" style="margin-top:0"><button id="rep-with">Add returns and fees, then generate</button><button class="ghost" id="rep-without">Generate without returns</button></div>
+<div class="row" style="margin-top:0"><button id="rep-with">Add returns and fees, then generate</button><button class="ghost" id="rep-without">Generate without returns and fees entered</button></div>
 <div id="rep-step"></div>
 </div>
 <div id="report-out"></div>
@@ -250,7 +250,7 @@ function buildReport(w){
   var total=0,ret=0,fees=0,net=0,rc=0,any=false,types={},tx=[],when=new Date().toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
   list.forEach(function(a){total+=a.cost;types[a.type]=(types[a.type]||0)+a.cost;var n=w?netOf(a.k):undefined;if(n!==undefined){net+=n;ret+=RET[a.k]||0;fees+=FEE[a.k]||0;rc+=a.cost;any=true}});
   var retTxt=any?signed(ret):"None entered",feeTxt=any?money(fees):"None entered",netTxt=any?signed(net)+(rc>0?" ("+pct(net/rc*100)+")":""):"None entered";
-  var h="<h2>Performance report</h2><div class='panel'><p class='sub' style='margin:0 0 12px'>Generated "+when+". "+(w?"Returns and fees included.":"Returns not included.")+"</p><div class='grid'><div><label>Holdings</label><strong>"+list.length+"</strong></div><div><label>Total cost base</label><strong>"+money(total)+"</strong></div>"+(w?"<div><label>Total return</label><strong>"+retTxt+"</strong></div><div><label>Total fees</label><strong>"+feeTxt+"</strong></div><div><label>Net return</label><strong>"+netTxt+"</strong></div>":"")+"</div>";
+  var h="<h2>Performance report</h2><div class='panel'><p class='sub' style='margin:0 0 12px'>Generated "+when+". "+(w?"Returns and fees included.":"Returns and fees not included.")+"</p><div class='grid'><div><label>Holdings</label><strong>"+list.length+"</strong></div><div><label>Total cost base</label><strong>"+money(total)+"</strong></div>"+(w?"<div><label>Total return</label><strong>"+retTxt+"</strong></div><div><label>Total fees</label><strong>"+feeTxt+"</strong></div><div><label>Net return</label><strong>"+netTxt+"</strong></div>":"")+"</div>";
   tx.push("Performance report, "+when,"Holdings: "+list.length,"Total cost base: "+money(total));
   if(w)tx.push("Total return: "+retTxt,"Total fees: "+feeTxt,"Net return: "+netTxt);
   tx.push("");
