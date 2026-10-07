@@ -53,6 +53,7 @@ td input.ret{width:110px;margin:0;padding:5px 8px;text-align:right}
 @media print{
 html:root:root:root{--bg:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#bbb}
 html.print-report #home>*:not(#report-out){display:none!important}
+html.print-report #top,html.print-report #future{display:none!important}
 .noprint,button,details{display:none!important}
 .po{display:block}
 #notes{display:none}
@@ -64,16 +65,22 @@ h2,h3{break-after:avoid}
 #notes,.nt{font:inherit;line-height:1.5;min-height:220px;overflow:hidden;resize:vertical;margin-top:0}
 .nt{min-height:160px}
 [hidden]{display:none!important}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:0 0 18px}
+.tab{background:transparent;color:var(--muted);border:none;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
 a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointer}
 .pw{white-space:pre-wrap;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <main>
-<div id="home">
+<div id="top">
 <h1>Holdings Tracker</h1>
 <p class="sub">Add any investment by hand or import a CSV. Everything stays in this browser.</p>
 <div class="po" id="print-date"></div>
+<div class="tabs noprint" role="tablist"><button class="tab" role="tab" id="tab-cur" aria-selected="true">Current holdings</button><button class="tab" role="tab" id="tab-fut" aria-selected="false">Future holdings</button></div>
+</div>
+<div id="home">
 <div class="row noprint" style="margin:0 0 14px"><button class="ghost" id="print-view">Print current view</button></div>
 
 <div class="panel"><div class="total" id="total">$0.00<small>Current approximate return</small></div><div class="msg" id="tot-ret"></div></div>
@@ -137,6 +144,9 @@ a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointe
 <textarea id="bk" aria-label="Backup text"></textarea>
 <div class="msg" id="bk-msg"></div>
 </details>
+</div>
+<div id="future" hidden>
+<p style="font-size:1.1rem;margin:0"><a href="#" id="newsletter" class="tk">The Holdings Tracker Newsletter</a></p>
 </div>
 <div id="detail" hidden></div>
 </main>
@@ -271,7 +281,8 @@ function growEl(el,min){el.style.height="auto";el.style.height=Math.max(el.scrol
 function fmtD(d){return d.toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})}
 function planText(a,y){var n=parseFloat(y);if(!(n>0))return "Enter the years to see your planned exit date.";if(!a||!a.first)return "Add a trade date to your purchases to see a planned exit date.";var st=new Date(a.first+"T00:00:00"),ex=new Date(st.getTime());ex.setMonth(ex.getMonth()+Math.round(n*12));var held=Math.max(0,(Date.now()-st.getTime())/31557600000);return "First purchase "+fmtD(st)+". Planned exit around "+fmtD(ex)+". Held about "+held.toFixed(1)+" of "+n+" years ("+Math.min(100,Math.round(held/n*100))+"%)."}
 function openHolding(k){try{location.hash="h="+encodeURIComponent(k)}catch(e){}showDetail(k)}
-function showMain(){$("detail").hidden=true;$("home").hidden=false;render();grow();window.scrollTo(0,0)}
+function showMain(){$("detail").hidden=true;$("top").hidden=false;setTab("cur");window.scrollTo(0,0)}
+function setTab(t){var c=t!=="fut";$("home").hidden=!c;$("future").hidden=c;$("tab-cur").setAttribute("aria-selected",c?"true":"false");$("tab-fut").setAttribute("aria-selected",c?"false":"true");if(c){render();grow()}}
 function showDetail(k){
   var a=holdingsList().filter(function(x){return x.k===k})[0],th=THESIS[k]||{},p=k.split("|"),ty=p[0],tk=p.slice(1).join("|"),n=a?netOf(a):undefined,d=$("detail");
   d.innerHTML="<div class='row noprint' style='margin:0 0 14px'><button class='ghost' id='d-back'>&larr; Back to holdings</button></div><h1>"+esc(tk)+"</h1><p class='sub'>"+esc(ty)+(a&&a.plat?" &middot; "+esc(a.plat):"")+"</p>"+
@@ -282,7 +293,7 @@ function showDetail(k){
   var f=$("d-f"),t=$("d-t"),y=$("d-y");
   f.value=th.f||"";t.value=th.t||"";y.value=th.y||"";
   $("d-plan").textContent=planText(a,y.value);
-  $("home").hidden=true;d.hidden=false;window.scrollTo(0,0);
+  $("home").hidden=true;$("future").hidden=true;$("top").hidden=true;d.hidden=false;window.scrollTo(0,0);
   growEl(f,160);growEl(t,160);
   f.oninput=function(){setTh(k,"f",f.value);growEl(f,160)};
   t.oninput=function(){setTh(k,"t",t.value);growEl(t,160)};
@@ -357,6 +368,9 @@ window.addEventListener("resize",grow);
 $("print-view").onclick=function(){document.documentElement.classList.remove("print-report");try{window.print()}catch(e){alert("Printing isn't available in this view. Open the page in your browser or the installed app to print.")}};
 window.addEventListener("beforeprint",function(){nb.style.height="auto";$("notes-print").textContent=nb.value;$("why-print").innerHTML=whyHtml();$("print-date").textContent="Printed "+new Date().toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})});
 window.addEventListener("afterprint",function(){document.documentElement.classList.remove("print-report");grow()});
+$("tab-cur").onclick=function(){setTab("cur")};
+$("tab-fut").onclick=function(){setTab("fut")};
+$("newsletter").onclick=function(e){e.preventDefault()};
 render();grow();route();
 })();
 if("serviceWorker" in navigator&&location.protocol!=="file:"){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
