@@ -90,7 +90,7 @@ a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointe
 <div class="panel">
 <div class="grid">
 <label>Type<input id="f-type" list="types" value="ETF"></label>
-<label>Ticker/name/product ID<input id="f-ticker" placeholder="VGS"></label>
+<label>Ticker or name<input id="f-ticker" placeholder="VGS"></label>
 <label>Platform (required)<input id="f-acct" list="accts" placeholder="Vanguard" required></label>
 <label>Buy or sell<select id="f-side"><option>Buy</option><option>Sell</option></select></label>
 <label>Trade date<input id="f-date" type="date"></label>
@@ -107,12 +107,12 @@ a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointe
 <h3>Import from CSV</h3>
 <div class="panel">
 <div class="grid">
-<label>Type for these rows<input id="i-type" list="types" value="ETF"></label>
+<label>Ticker/name/product ID<input id="i-type" list="types" value="ETF"></label>
 <label>Platform (required)<input id="i-acct" list="accts" placeholder="nabtrade" required></label>
 <label>CSV file<input id="i-file" type="file" accept=".csv,text/csv"></label>
 </div>
 <div id="map"></div>
-<div class="msg" id="imp-msg">Choose a file, then check the ticker, name or product ID column. The app finds the other columns on its own and tells you which ones it used. Run the import once per type or platform.</div>
+<div class="msg" id="imp-msg">Choose a file, then check the ticker or name column. The app finds the other columns on its own and tells you which ones it used. Run the import once per type or platform.</div>
 </div>
 
 <h2>Holdings</h2>
@@ -217,7 +217,7 @@ $("add").onclick=function(){
   var r={type:$("f-type").value.trim()||"Other",ticker:$("f-ticker").value.trim().toUpperCase(),acct:$("f-acct").value.trim(),side:$("f-side").value,date:$("f-date").value,units:parseFloat($("f-units").value),price:parseFloat($("f-price").value)};
   var m=$("add-msg");m.className="msg";
   if(!r.acct){m.className="msg err";m.textContent="Enter the platform this holding is on.";return}
-  if(!r.ticker||!(r.units>0)||!(r.price>=0)){m.className="msg err";m.textContent="Enter a ticker, name or product ID, units above zero, and a price.";return}
+  if(!r.ticker||!(r.units>0)||!(r.price>=0)){m.className="msg err";m.textContent="Enter a ticker or name, units above zero, and a price.";return}
   rows.push(r);save();remember(r.type,r.acct);$("i-type").value=r.type;$("i-acct").value=r.acct;render();m.textContent="Added "+r.ticker+".";
   $("f-ticker").value="";$("f-units").value="";$("f-price").value="";
 };
@@ -239,7 +239,7 @@ function num(s){if(s==null)return NaN;var neg=/^\(.*\)$/.test(s.trim());var v=pa
 function dt(s){s=(s||"").trim();var m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
   if(m){var y=m[3].length===2?"20"+m[3]:m[3];return y+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2)}
   m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:""}
-var FIELDS=[["ticker","Ticker/name/product ID",/code|ticker|symbol|security|asset|instrument|product|name/i,1],["date","Trade date",/date/i,0],["units","Units",/^(?!.*(price|value|cost|rate)).*(unit|qty|quantity|shares)/i,1],["price","Price per unit",/price/i,1],["side","Buy or sell (optional)",/action|side|type|buy|sell|transaction/i,0]];
+var FIELDS=[["ticker","Ticker or name",/code|ticker|symbol|security|asset|instrument|name/i,1],["date","Trade date",/date/i,0],["units","Units",/^(?!.*(price|value|cost|rate)).*(unit|qty|quantity|shares)/i,1],["price","Price per unit",/price/i,1],["side","Buy or sell (optional)",/action|side|type|buy|sell|transaction/i,0]];
 $("i-file").onchange=function(){
   var f=this.files[0];if(!f)return;
   var rd=new FileReader();
@@ -251,7 +251,7 @@ $("i-file").onchange=function(){
       var g=-1;h.forEach(function(x,j){if(g<0&&!used[j]&&F[2].test(x)){g=j}});if(g>=0)used[g]=1;
       var v=g>=0?esc(h[g]):"";return F[0]==="ticker"?"<label>"+F[1]+"<input type='text' data-f='ticker' value='"+v+"' placeholder='Column heading'></label>":"<input type='hidden' data-f='"+F[0]+"' value='"+v+"'>"}).join("")+
       "</div><div class='row'><button id='go'>Import "+(csv.length-1)+" rows</button></div>";
-    $("imp-msg").className="msg";$("imp-msg").textContent="Check the ticker/name/product ID box, then import. The app finds the date, units and price columns itself. Rows already in the app are skipped.";
+    $("imp-msg").className="msg";$("imp-msg").textContent="Check the ticker or name box, then import. The app finds the date, units and price columns itself. Rows already in the app are skipped.";
     $("go").onclick=doImport;
   };
   rd.readAsText(f);
@@ -260,7 +260,7 @@ function doImport(){
   var col={};var hd=csv[0].map(function(x){return x.trim().toLowerCase()}),miss=[],used=[];document.querySelectorAll("#map input").forEach(function(s){var v=s.value.trim().toLowerCase(),f=s.getAttribute("data-f");used.push(FIELDS.filter(function(F){return F[0]===f})[0][1]+": "+(s.value.trim()||"none found"));if(!v){col[f]=-1;return}var j=hd.indexOf(v);if(j<0)miss.push(s.value.trim());col[f]=j});
   var m=$("imp-msg");
   if(miss.length){m.className="msg err";m.textContent="No column called "+miss.join(", ")+" in this file. Check the spelling against the headings listed above.";return}
-  if(col.ticker<0){m.className="msg err";m.textContent="Enter the heading of the ticker, name or product ID column first.";return}
+  if(col.ticker<0){m.className="msg err";m.textContent="Enter the heading of the ticker or name column first.";return}
   if(col.units<0||col.price<0){m.className="msg err";m.textContent="The app couldn't find a units or price column on its own. Headings in your file: "+csv[0].join(", ")+".";return}
   var type=$("i-type").value.trim()||"Other",acct=$("i-acct").value.trim(),seen={},added=0,skipped=0,bad=0;
   if(!acct){m.className="msg err";m.textContent="Enter the platform these rows came from.";return}
