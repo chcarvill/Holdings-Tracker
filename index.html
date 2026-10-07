@@ -52,7 +52,7 @@ td input.ret{width:110px;margin:0;padding:5px 8px;text-align:right}
 #notes-print{white-space:pre-wrap;overflow-wrap:anywhere}
 @media print{
 html:root:root:root{--bg:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#bbb}
-html.print-report main>*:not(#report-out){display:none!important}
+html.print-report #home>*:not(#report-out){display:none!important}
 .noprint,button,details{display:none!important}
 .po{display:block}
 #notes{display:none}
@@ -61,11 +61,16 @@ html.print-report main>*:not(#report-out){display:none!important}
 tr{break-inside:avoid}
 h2,h3{break-after:avoid}
 }
-#notes{font:inherit;line-height:1.5;min-height:220px;overflow:hidden;resize:vertical;margin-top:0}
+#notes,.nt{font:inherit;line-height:1.5;min-height:220px;overflow:hidden;resize:vertical;margin-top:0}
+.nt{min-height:160px}
+[hidden]{display:none!important}
+a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointer}
+.pw{white-space:pre-wrap;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <main>
+<div id="home">
 <h1>Holdings Tracker</h1>
 <p class="sub">Add any investment by hand or import a CSV. Everything stays in this browser.</p>
 <div class="po" id="print-date"></div>
@@ -106,11 +111,12 @@ h2,h3{break-after:avoid}
 <h2>Holdings</h2>
 <label style="max-width:240px;margin-bottom:10px">Chart links open on<select id="chart-site"></select></label>
 <div class="panel scroll" id="holdings"></div>
-<div class="msg">The annual fee is worked out on the cost base for each year since the first purchase date. Don't enter a fund's management fee (MER), as it is already in the price.</div>
+<div class="msg">Click a ticker to record why you bought it and how long you plan to hold it. The annual fee is worked out on the cost base for each year since the first purchase date. Don't enter a fund's management fee (MER), as it is already in the price.</div>
 
 <h2>Report</h2>
 <div class="panel">
 <p class="sub" style="margin:0 0 12px">Create a summary of every holding in the app.</p>
+<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="rep-notes" checked style="width:auto;margin:0"> Include my reasons and intended hold periods</label>
 <div class="row" style="margin-top:0"><button id="rep-with">Add returns and fees, then generate</button><button class="ghost" id="rep-without">Generate without returns and fees entered</button></div>
 <div id="rep-step"></div>
 </div>
@@ -122,6 +128,7 @@ h2,h3{break-after:avoid}
 <h2>Your current most cost-effective strategy for purchasing stock/ETF's:</h2>
 <textarea id="notes" aria-label="Your current most cost-effective strategy for purchasing stock/ETF's" placeholder="Type or paste your notes here"></textarea>
 <div id="notes-print" class="po"></div>
+<div id="why-print" class="po"></div>
 
 <details>
 <summary>Backup and restore</summary>
@@ -130,6 +137,8 @@ h2,h3{break-after:avoid}
 <textarea id="bk" aria-label="Backup text"></textarea>
 <div class="msg" id="bk-msg"></div>
 </details>
+</div>
+<div id="detail" hidden></div>
 </main>
 
 <script>
@@ -152,6 +161,9 @@ var RET={};try{RET=JSON.parse(localStorage.getItem("holdings.returns")||"{}")||{
 var FEE={};try{FEE=JSON.parse(localStorage.getItem("holdings.fees")||"{}")||{}}catch(e){FEE={}}
 function fixFee(){Object.keys(FEE).forEach(function(k){if(typeof FEE[k]==="number")FEE[k]={i:FEE[k]}})}
 fixFee();
+var THESIS={};try{THESIS=JSON.parse(localStorage.getItem("holdings.thesis")||"{}")||{}}catch(e){THESIS={}}
+function saveTh(){try{localStorage.setItem("holdings.thesis",JSON.stringify(THESIS))}catch(e){}}
+function setTh(k,fd,v){var o=THESIS[k]||{};if(v===""){delete o[fd]}else{o[fd]=v}if(Object.keys(o).length){THESIS[k]=o}else{delete THESIS[k]}saveTh()}
 function saveRet(){try{localStorage.setItem("holdings.returns",JSON.stringify(RET));localStorage.setItem("holdings.fees",JSON.stringify(FEE))}catch(e){}}
 function setFee(k,fd,v){var n=num(v),o=FEE[k]||{};if(v===""||v==null||isNaN(n)){delete o[fd]}else{o[fd]=Math.abs(n)}if(Object.keys(o).length){FEE[k]=o}else{delete FEE[k]}}
 function feesOf(a){var f=FEE[a.k];if(!f)return null;var y=a.first?Math.max(0,(Date.now()-new Date(a.first+"T00:00:00").getTime())/31557600000):1,an=f.a&&a.cost>0?a.cost*f.a/100*y:0;return{i:f.i||0,s:f.s||0,a:an,pa:f.a||0,t:(f.i||0)+(f.s||0)+an,assumed:!!(f.a&&!a.first)}}
@@ -178,7 +190,7 @@ function render(){
   $("total").firstChild.nodeValue=signed(net);
   $("tot-ret").textContent=any?"Total of net returns after "+money(fees)+" in fees, across "+cnt+(cnt===1?" holding":" holdings")+" with a return or fee entered"+(rc>0?" ("+pct(net/rc*100)+" on their cost base)":"")+".":"Enter returns and fees in the Holdings table to see this total.";
   $("holdings").innerHTML=list.length?"<table><tr><th>Ticker</th><th class='l'>Type</th><th>Units</th><th>Avg cost</th><th>Cost base</th><th>Return ($)</th><th>Initial fee ($)</th><th>Selling fee ($)</th><th>Annual fee (%)</th><th>Net return ($)</th><th>Net %</th><th></th></tr>"+
-    list.map(function(a){var n=netOf(a),t=esc(a.ticker),f=FEE[a.k]||{};return "<tr><td>"+t+"</td><td class='l'>"+esc(a.type)+"</td><td>"+(+a.units.toFixed(6))+"</td><td>"+money(a.avg)+"</td><td>"+money(a.cost)+"</td><td>"+inp("data-k",a.k,RET[a.k],"Current return in dollars for "+t)+"</td><td>"+finp(a.k,"i",f.i,"Initial fee in dollars for "+t)+"</td><td>"+finp(a.k,"s",f.s,"Selling fee in dollars for "+t)+"</td><td>"+finp(a.k,"a",f.a,"Annual fee percent for "+t)+"</td><td>"+(n!==undefined?signed(n):"")+"</td><td>"+(n!==undefined&&a.cost>0?pct(n/a.cost*100):"")+"</td><td>"+chartLink(a)+"</td></tr>"}).join("")+"</table>"
+    list.map(function(a){var n=netOf(a),t=esc(a.ticker),f=FEE[a.k]||{};return "<tr><td><a href='#h="+encodeURIComponent(a.k)+"' class='tk' data-open='"+esc(a.k)+"'>"+t+"</a></td><td class='l'>"+esc(a.type)+"</td><td>"+(+a.units.toFixed(6))+"</td><td>"+money(a.avg)+"</td><td>"+money(a.cost)+"</td><td>"+inp("data-k",a.k,RET[a.k],"Current return in dollars for "+t)+"</td><td>"+finp(a.k,"i",f.i,"Initial fee in dollars for "+t)+"</td><td>"+finp(a.k,"s",f.s,"Selling fee in dollars for "+t)+"</td><td>"+finp(a.k,"a",f.a,"Annual fee percent for "+t)+"</td><td>"+(n!==undefined?signed(n):"")+"</td><td>"+(n!==undefined&&a.cost>0?pct(n/a.cost*100):"")+"</td><td>"+chartLink(a)+"</td></tr>"}).join("")+"</table>"
     :"<div class='empty'>No holdings yet. Add one above or import a CSV.</div>";
   var sorted=rows.map(function(r,i){return{r:r,i:i}}).sort(function(a,b){return (b.r.date||"").localeCompare(a.r.date||"")});
   $("txns").innerHTML=rows.length?"<table><tr><th>Date</th><th class='l'>Ticker</th><th class='l'>Platform</th><th class='l'>Side</th><th>Units</th><th>Price</th><th></th></tr>"+
@@ -254,6 +266,36 @@ function doImport(){
   m.textContent="Added "+added+" rows"+(skipped?", skipped "+skipped+" duplicates":"")+(bad?", ignored "+bad+" unreadable rows":"")+".";
 }
 
+/* Holding detail */
+function growEl(el,min){el.style.height="auto";el.style.height=Math.max(el.scrollHeight,min)+"px"}
+function fmtD(d){return d.toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})}
+function planText(a,y){var n=parseFloat(y);if(!(n>0))return "Enter the years to see your planned exit date.";if(!a||!a.first)return "Add a trade date to your purchases to see a planned exit date.";var st=new Date(a.first+"T00:00:00"),ex=new Date(st.getTime());ex.setMonth(ex.getMonth()+Math.round(n*12));var held=Math.max(0,(Date.now()-st.getTime())/31557600000);return "First purchase "+fmtD(st)+". Planned exit around "+fmtD(ex)+". Held about "+held.toFixed(1)+" of "+n+" years ("+Math.min(100,Math.round(held/n*100))+"%)."}
+function openHolding(k){try{location.hash="h="+encodeURIComponent(k)}catch(e){}showDetail(k)}
+function showMain(){$("detail").hidden=true;$("home").hidden=false;render();grow();window.scrollTo(0,0)}
+function showDetail(k){
+  var a=holdingsList().filter(function(x){return x.k===k})[0],th=THESIS[k]||{},p=k.split("|"),ty=p[0],tk=p.slice(1).join("|"),n=a?netOf(a):undefined,d=$("detail");
+  d.innerHTML="<div class='row noprint' style='margin:0 0 14px'><button class='ghost' id='d-back'>&larr; Back to holdings</button></div><h1>"+esc(tk)+"</h1><p class='sub'>"+esc(ty)+(a&&a.plat?" &middot; "+esc(a.plat):"")+"</p>"+
+   (a?"<div class='panel'><div class='grid'><div><label>Units</label><strong>"+(+a.units.toFixed(6))+"</strong></div><div><label>Avg cost</label><strong>"+money(a.avg)+"</strong></div><div><label>Cost base</label><strong>"+money(a.cost)+"</strong></div><div><label>Net return</label><strong>"+(n!==undefined?signed(n):"Not entered")+"</strong></div></div></div>":"<div class='msg'>You no longer hold this. Your notes are kept.</div>")+
+   "<h2>Why I bought: fundamentals</h2><textarea class='nt' id='d-f' aria-label='Why I bought, fundamentals' placeholder='For example: earnings growth, dividends, fees, what the fund holds, why the business is strong'></textarea>"+
+   "<h2>Why I bought: technicals</h2><textarea class='nt' id='d-t' aria-label='Why I bought, technicals' placeholder='For example: trend, support and resistance, moving averages, entry timing'></textarea>"+
+   "<h2>How many years I intend to hold</h2><div class='panel'><label>Years<input id='d-y' type='number' min='0' step='any' inputmode='decimal' style='max-width:140px'></label><div class='msg' id='d-plan'></div></div>";
+  var f=$("d-f"),t=$("d-t"),y=$("d-y");
+  f.value=th.f||"";t.value=th.t||"";y.value=th.y||"";
+  $("d-plan").textContent=planText(a,y.value);
+  $("home").hidden=true;d.hidden=false;window.scrollTo(0,0);
+  growEl(f,160);growEl(t,160);
+  f.oninput=function(){setTh(k,"f",f.value);growEl(f,160)};
+  t.oninput=function(){setTh(k,"t",t.value);growEl(t,160)};
+  y.oninput=function(){setTh(k,"y",y.value);$("d-plan").textContent=planText(a,y.value)};
+  $("d-back").onclick=function(){try{location.hash=""}catch(e){}showMain()};
+}
+function route(){var m=(location.hash||"").match(/^#h=(.+)$/);if(m){try{showDetail(decodeURIComponent(m[1]))}catch(e){showMain()}}else if(!$("detail").hidden){showMain()}}
+window.addEventListener("hashchange",route);
+$("holdings").addEventListener("click",function(e){var l=e.target.closest&&e.target.closest("a.tk");if(l){e.preventDefault();openHolding(l.getAttribute("data-open"))}});
+function whyList(){return holdingsList().filter(function(a){var t=THESIS[a.k];return t&&(t.f||t.t||t.y)})}
+function whyHtml(){var l=whyList();if(!l.length)return "";return "<h3 style='margin-top:18px'>Reasons and hold plans</h3>"+l.map(function(a){var t=THESIS[a.k];return "<div style='margin:0 0 14px;break-inside:avoid'><strong>"+esc(a.ticker)+"</strong> <span class='msg'>"+esc(a.type)+(t.y?" &middot; intends to hold "+esc(t.y)+" years":"")+"</span>"+(t.f?"<div><em>Fundamentals:</em> <span class='pw'>"+esc(t.f)+"</span></div>":"")+(t.t?"<div><em>Technicals:</em> <span class='pw'>"+esc(t.t)+"</span></div>":"")+"</div>"}).join("")}
+function whyText(){var l=whyList();if(!l.length)return "";var o=["","Reasons and hold plans"];l.forEach(function(a){var t=THESIS[a.k];o.push("");o.push(a.ticker+" ("+a.type+")"+(t.y?", intends to hold "+t.y+" years":""));if(t.f)o.push("Fundamentals: "+t.f);if(t.t)o.push("Technicals: "+t.t)});return o.join("\n")}
+
 /* Report */
 $("rep-without").onclick=function(){$("rep-step").innerHTML="";buildReport(false)};
 $("rep-with").onclick=function(){
@@ -282,6 +324,7 @@ function buildReport(w){
    list.map(function(a){var n=w?netOf(a):undefined,has=n!==undefined,f=has?feesOf(a):null,rt=has&&RET[a.k]!==undefined?signed(RET[a.k]):"-",it=f&&f.i?money(f.i):"-",st=f&&f.s?money(f.s):"-",at=f&&f.pa?money(f.a)+" ("+f.pa+"%)":"-",nt=has?signed(n):"-",np=has&&a.cost>0?pct(n/a.cost*100):"-";
      tx.push([a.ticker,a.type,a.plat,+a.units.toFixed(6),money(a.avg),money(a.cost)].concat(w?[rt,it,st,at,nt,np]:[]).join(" | "));
      return "<tr><td>"+esc(a.ticker)+"</td><td class='l'>"+esc(a.type)+"</td><td class='l'>"+esc(a.plat)+"</td><td>"+(+a.units.toFixed(6))+"</td><td>"+money(a.avg)+"</td><td>"+money(a.cost)+"</td>"+(w?"<td>"+rt+"</td><td>"+it+"</td><td>"+st+"</td><td>"+at+"</td><td>"+nt+"</td><td>"+np+"</td>":"")+"</tr>"}).join("")+"</table></div>";
+  if($("rep-notes").checked){h+=whyHtml();tx.push(whyText())}
   if(w)h+="<p class='msg'>Returns and fees are the amounts you entered. Annual fees are worked out on cost base for each year since the first purchase date"+(asm?" (one year assumed where a holding has no purchase date)":"")+". Net return is return minus all fees. The app doesn't check them against live prices.</p>";
   h+="<div class='row noprint'><button id='rep-print'>Print or save as PDF</button><button class='ghost' id='rep-copy'>Copy as text</button></div><div class='msg noprint' id='rep-msg'></div></div>";
   out.innerHTML=h;
@@ -296,10 +339,10 @@ function buildReport(w){
 }
 
 /* Backup */
-$("copy").onclick=function(){var t=JSON.stringify({rows:rows,returns:RET,fees:FEE,notes:nb.value});$("bk").value=t;
+$("copy").onclick=function(){var t=JSON.stringify({rows:rows,returns:RET,fees:FEE,notes:nb.value,thesis:THESIS});$("bk").value=t;
   var done=function(){$("bk-msg").textContent="Backup copied."};
   try{navigator.clipboard.writeText(t).then(done,function(){$("bk").select();$("bk-msg").textContent="Select and copy the text above."})}catch(e){$("bk").select();$("bk-msg").textContent="Select and copy the text above."}};
-$("restore").onclick=function(){try{var d=JSON.parse($("bk").value);if(Array.isArray(d)){rows=d}else if(d&&Array.isArray(d.rows)){rows=d.rows;RET=d.returns||{};FEE=d.fees||{};fixFee();saveRet();if(typeof d.notes==="string"){nb.value=d.notes;try{localStorage.setItem("holdings.notes",d.notes)}catch(e){}grow()}}else throw 0;save();render();$("bk-msg").textContent="Restored "+rows.length+" transactions."}catch(e){$("bk-msg").textContent="That text isn't a valid backup."}};
+$("restore").onclick=function(){try{var d=JSON.parse($("bk").value);if(Array.isArray(d)){rows=d}else if(d&&Array.isArray(d.rows)){rows=d.rows;RET=d.returns||{};FEE=d.fees||{};fixFee();saveRet();if(d.thesis&&typeof d.thesis==="object"){THESIS=d.thesis;saveTh()}if(typeof d.notes==="string"){nb.value=d.notes;try{localStorage.setItem("holdings.notes",d.notes)}catch(e){}grow()}}else throw 0;save();render();$("bk-msg").textContent="Restored "+rows.length+" transactions."}catch(e){$("bk-msg").textContent="That text isn't a valid backup."}};
 $("wipe").onclick=function(){if(confirm("Delete all holdings and transactions from this browser?")){rows=[];RET={};FEE={};save();saveRet();render();$("bk-msg").textContent="All data deleted."}};
 
 $("chart-site").innerHTML=Object.keys(CHARTS).map(function(k){return "<option"+(k===SITE?" selected":"")+">"+k+"</option>"}).join("");
@@ -312,9 +355,9 @@ try{nb.value=localStorage.getItem("holdings.notes")||""}catch(e){}
 nb.addEventListener("input",function(){grow();try{localStorage.setItem("holdings.notes",nb.value)}catch(e){}});
 window.addEventListener("resize",grow);
 $("print-view").onclick=function(){document.documentElement.classList.remove("print-report");try{window.print()}catch(e){alert("Printing isn't available in this view. Open the page in your browser or the installed app to print.")}};
-window.addEventListener("beforeprint",function(){nb.style.height="auto";$("notes-print").textContent=nb.value;$("print-date").textContent="Printed "+new Date().toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})});
+window.addEventListener("beforeprint",function(){nb.style.height="auto";$("notes-print").textContent=nb.value;$("why-print").innerHTML=whyHtml();$("print-date").textContent="Printed "+new Date().toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})});
 window.addEventListener("afterprint",function(){document.documentElement.classList.remove("print-report");grow()});
-render();grow();
+render();grow();route();
 })();
 if("serviceWorker" in navigator&&location.protocol!=="file:"){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 </script>
