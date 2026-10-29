@@ -419,9 +419,11 @@ function saveWatch(){try{localStorage.setItem("holdings.watch",JSON.stringify(WA
 
 var WM=[["peg","PEG ratio"],["pe","P/E (price-to-earnings)"],["eps","EPS ($)"],["pb","P/B (price-to-book)"],["ps","P/S (price-to-sales)"],["pcf","P/CF (price-to-cash-flow)"],["evebitda","EV/EBITDA"],["roe","ROE (%)"],["roa","ROA (%)"],["margin","Profit margin (%)"],["de","D/E (debt-to-equity)"],["debt","Total debt ($)"]];
 
+var WI=[["growthreq","Market growth required to lift transaction volume / product use","For example: 8% a year, or 2x the current market size","The key question: how much does the market have to grow before this company sells or processes meaningfully more?"],["headroom","Market penetration headroom (or saturation index)","For example: 35% penetrated, so 65% headroom","How much of the addressable market is still untapped? A high saturation index means little room left to grow."]];
+
 var WT=[["lead","Who is steering the ship?","Who are the CEO, chair and key executives? What is their track record, and how long have they been in the role?"],["built","Did they build the organisation?","Are they founders or hired in? What have they built, grown or turned around?"],["invest","What makes them investable?","For example: ownership stake, capital allocation, honesty with shareholders, consistency over time"]];
 
-function wProg(w){var d=w.d||{},m=0,t=0;WM.forEach(function(x){if(String(d[x[0]]||"").trim())m++});WT.concat([["trend"],["tech"]]).forEach(function(x){if(String(d[x[0]]||"").trim())t++});return m+" of "+WM.length+" figures &middot; "+t+" of "+(WT.length+2)+" written answers"}
+function wProg(w){var d=w.d||{},m=0,t=0;WM.concat(WI).forEach(function(x){if(String(d[x[0]]||"").trim())m++});WT.concat([["trend"],["tech"]]).forEach(function(x){if(String(d[x[0]]||"").trim())t++});return m+" of "+(WM.length+WI.length)+" figures &middot; "+t+" of "+(WT.length+2)+" written answers"}
 
 function wHead(w){return "<strong>"+esc(w.ticker)+"</strong> <span class='msg' style='margin:0'>"+esc(w.type)+(w.target>0?" &middot; target "+money(w.target):"")+"</span> <span class='msg' style='margin:0' data-prog>"+wProg(w)+"</span>"}
 
@@ -437,7 +439,7 @@ return "<details class='panel wsec' data-wid='"+id+"'"+(OPEN[w.id]?" open":"")+"
 
 "<h3>Leadership</h3>"+WT.map(function(x){return "<label class='tx'>"+x[1]+"<textarea class='nt' data-wd='"+x[0]+"' placeholder='"+esc(x[2])+"' aria-label='"+esc(w.ticker+": "+x[1])+"'>"+esc(d[x[0]]||"")+"</textarea></label>"}).join("")+
 
-"<h3>Industry outlook</h3><div class='grid'><label>Anticipated trajectory<select data-wd='dir'>"+["","Growing","Stable","Declining","Uncertain"].map(function(o){return "<option value='"+o+"'"+((d.dir||"")===o?" selected":"")+">"+(o||"Choose")+"</option>"}).join("")+"</select></label></div>"+
+"<h3>Industry outlook</h3><div class='grid'><label>Anticipated trajectory<select data-wd='dir'>"+["","Growing","Stable","Declining","Uncertain"].map(function(o){return "<option value='"+o+"'"+((d.dir||"")===o?" selected":"")+">"+(o||"Choose")+"</option>"}).join("")+"</select></label></div>"+"<div class='msg' style='margin-top:12px'>The two most important industry measures:</div>"+WI.map(function(x){return "<label class='tx'>"+x[1]+"<input data-wd='"+x[0]+"' value='"+esc(d[x[0]]||"")+"' placeholder='"+esc(x[2])+"' aria-label='"+esc(w.ticker+": "+x[1])+"'><span class='msg' style='margin:4px 0 0'>"+x[3]+"</span></label>"}).join("")+
 
 "<label class='tx'>Why? What is driving the trajectory of this industry<textarea class='nt' data-wd='trend' placeholder='For example: demand, regulation, technology change, competition, interest rates' aria-label='"+esc(w.ticker+": industry trajectory and why")+"'>"+esc(d.trend||"")+"</textarea></label>"+
 
@@ -522,7 +524,7 @@ return "<details class='panel wsec'><summary><strong>"+esc(w.ticker)+"</strong> 
 
 (figs.length?"<h3>Valuation and financial health</h3><div class='grid'>"+figs.map(function(x){return "<div><label>"+x[1]+"</label><strong>"+esc(d[x[0]])+"</strong></div>"}).join("")+"</div>":"")+
 
-(d.dir?"<h3>Industry outlook</h3><div><strong>"+esc(d.dir)+"</strong></div>":"")+
+((d.dir||WI.some(function(x){return String(d[x[0]]||"").trim()}))?"<h3>Industry outlook</h3><div class='grid'>"+(d.dir?"<div><label>Anticipated trajectory</label><strong>"+esc(d.dir)+"</strong></div>":"")+WI.filter(function(x){return String(d[x[0]]||"").trim()}).map(function(x){return "<div><label>"+x[1]+"</label><strong>"+esc(d[x[0]])+"</strong></div>"}).join("")+"</div>":"")+
 
 txt.map(function(x){return "<h3>"+x[1].replace(/\?$/,"")+"</h3><div class='pw'>"+esc(d[x[0]])+"</div>"}).join("")+
 
