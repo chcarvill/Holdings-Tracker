@@ -53,7 +53,7 @@ td input.ret{width:110px;margin:0;padding:5px 8px;text-align:right}
 @media print{
 html:root:root:root{--bg:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#bbb}
 html.print-report #home>*:not(#report-out){display:none!important}
-html.print-report #top,html.print-report #future{display:none!important}
+html.print-report #top,html.print-report #future,html.print-report #watch,html.print-report #comms{display:none!important}
 .noprint,button,details{display:none!important}
 .po{display:block}
 #notes{display:none}
@@ -67,11 +67,12 @@ h2,h3{break-after:avoid}
 #notes,.nt{background:#fff;color:#1b2421}
 #notes::placeholder,.nt::placeholder{color:#7a847d}
 [hidden]{display:none!important}
-.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:0 0 18px}
-.tab{background:transparent;color:var(--muted);border:none;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;margin-bottom:-1px}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:0 0 18px;overflow-x:auto}
+.tab{white-space:nowrap;background:transparent;color:var(--muted);border:none;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;margin-bottom:-1px}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
 a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointer}
 .pw{white-space:pre-wrap;overflow-wrap:anywhere}
+.wsec{margin-top:12px}.wsec>summary{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.wsec h3{margin-top:18px}.wsec label.tx{margin-top:12px}.wsec textarea.nt{min-height:90px}
 </style>
 </head>
 <body>
@@ -80,7 +81,7 @@ a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointe
 <h1>Holdings Tracker</h1>
 <p class="sub">Add any investment by hand or import a CSV. Everything stays in this browser.</p>
 <div class="po" id="print-date"></div>
-<div class="tabs noprint" role="tablist"><button class="tab" role="tab" id="tab-cur" aria-selected="true">Current holdings</button><button class="tab" role="tab" id="tab-fut" aria-selected="false">Future holdings</button></div>
+<div class="tabs noprint" role="tablist"><button class="tab" role="tab" id="tab-cur" aria-selected="true">Current holdings</button><button class="tab" role="tab" id="tab-fut" aria-selected="false">Future holdings</button><button class="tab" role="tab" id="tab-watch" aria-selected="false">Watchlist</button><button class="tab" role="tab" id="tab-comms" aria-selected="false">Communications</button></div>
 </div>
 <div id="home">
 <div class="row noprint" style="margin:0 0 14px"><button class="ghost" id="print-view">Print current view</button></div>
@@ -148,7 +149,49 @@ a.tk{color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointe
 </details>
 </div>
 <div id="future" hidden>
+
+<p class="sub">Instruments you mark as a solid buy on the Watchlist appear here.</p>
+
+<div id="future-list"></div>
+
+</div>
+
+<div id="watch" hidden>
+
+<h2 class="caps" style="margin-top:0">Add to watchlist</h2>
+
+<div class="panel">
+
+<div class="grid">
+
+<label>Type<input id="w-type" list="types" value="ETF"></label>
+
+<label>Ticker or name<input id="w-ticker" placeholder="VGS"></label>
+
+<label>Target price (optional)<input id="w-target" type="number" step="any" min="0"></label>
+
+<label>Notes (optional)<input id="w-note" placeholder="Why I'm watching it"></label>
+
+</div>
+
+<div class="row"><button id="w-add">Add to watchlist</button></div>
+
+<div class="msg" id="w-msg"></div>
+
+</div>
+
+<h2>Watchlist</h2>
+
+<p class="sub">Open an instrument to record your research. Leave anything blank that you don't know yet. Everything saves as you type.</p>
+
+<div id="watch-list"></div>
+
+</div>
+
+<div id="comms" hidden>
+
 <p style="font-size:1.1rem;margin:0"><a href="#" id="newsletter" class="tk">The Holdings Tracker Newsletter</a></p>
+
 </div>
 <div id="detail" hidden></div>
 </main>
@@ -285,7 +328,7 @@ function fmtD(d){return d.toLocaleDateString("en-AU",{day:"numeric",month:"long"
 function planText(a,y){var n=parseFloat(y);if(!(n>0))return "Enter the years to see your planned exit date.";if(!a||!a.first)return "Add a trade date to your purchases to see a planned exit date.";var st=new Date(a.first+"T00:00:00"),ex=new Date(st.getTime());ex.setMonth(ex.getMonth()+Math.round(n*12));var held=Math.max(0,(Date.now()-st.getTime())/31557600000);return "First purchase "+fmtD(st)+". Planned exit around "+fmtD(ex)+". Held about "+held.toFixed(1)+" of "+n+" years ("+Math.min(100,Math.round(held/n*100))+"%)."}
 function openHolding(k){try{location.hash="h="+encodeURIComponent(k)}catch(e){}showDetail(k)}
 function showMain(){$("detail").hidden=true;$("top").hidden=false;setTab("cur");window.scrollTo(0,0)}
-function setTab(t){var c=t!=="fut";$("home").hidden=!c;$("future").hidden=c;$("tab-cur").setAttribute("aria-selected",c?"true":"false");$("tab-fut").setAttribute("aria-selected",c?"false":"true");if(c){render();grow()}}
+function setTab(t){var ids={cur:"home",fut:"future",watch:"watch",comms:"comms"},tabs={cur:"tab-cur",fut:"tab-fut",watch:"tab-watch",comms:"tab-comms"};if(!ids[t])t="cur";Object.keys(ids).forEach(function(k){$(ids[k]).hidden=k!==t;$(tabs[k]).setAttribute("aria-selected",k===t?"true":"false")});if(t==="cur"){render();grow()}if(t==="watch")renderWatch();if(t==="fut")renderFuture()}
 function showDetail(k){
   var a=holdingsList().filter(function(x){return x.k===k})[0],th=THESIS[k]||{},p=k.split("|"),ty=p[0],tk=p.slice(1).join("|"),n=a?netOf(a):undefined,d=$("detail");
   d.innerHTML="<div class='row noprint' style='margin:0 0 14px'><button class='ghost' id='d-back'>&larr; Back to holdings</button></div><h1>"+esc(tk)+"</h1><p class='sub'>"+esc(ty)+(a&&a.plat?" &middot; "+esc(a.plat):"")+"</p>"+
@@ -296,7 +339,7 @@ function showDetail(k){
   var f=$("d-f"),t=$("d-t"),y=$("d-y");
   f.value=th.f||"";t.value=th.t||"";y.value=th.y||"";
   $("d-plan").textContent=planText(a,y.value);
-  $("home").hidden=true;$("future").hidden=true;$("top").hidden=true;d.hidden=false;window.scrollTo(0,0);
+  $("home").hidden=true;$("future").hidden=true;$("watch").hidden=true;$("comms").hidden=true;$("top").hidden=true;d.hidden=false;window.scrollTo(0,0);
   growEl(f,160);growEl(t,160);
   f.oninput=function(){setTh(k,"f",f.value);growEl(f,160)};
   t.oninput=function(){setTh(k,"t",t.value);growEl(t,160)};
@@ -352,11 +395,154 @@ function buildReport(w){
   try{out.scrollIntoView()}catch(e){}
 }
 
+/* Watchlist */
+
+var WATCH=[],OPEN={};try{WATCH=JSON.parse(localStorage.getItem("holdings.watch")||"[]")||[]}catch(e){WATCH=[]}
+
+if(!Array.isArray(WATCH))WATCH=[];
+
+function newId(){return "w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+
+function cleanW(a){if(!Array.isArray(a))return [];a=a.filter(function(w){return w&&typeof w==="object"&&w.ticker});a.forEach(function(w){if(!w.id)w.id=newId();if(!w.d||typeof w.d!=="object")w.d={}});return a}
+
+function fixW(){WATCH=cleanW(WATCH)}
+
+var FUTURE=[];try{FUTURE=JSON.parse(localStorage.getItem("holdings.future")||"[]")||[]}catch(e){FUTURE=[]}
+
+FUTURE=cleanW(FUTURE);
+
+function saveFuture(){try{localStorage.setItem("holdings.future",JSON.stringify(FUTURE))}catch(e){}}
+
+fixW();
+
+function saveWatch(){try{localStorage.setItem("holdings.watch",JSON.stringify(WATCH))}catch(e){}}
+
+var WM=[["peg","PEG ratio"],["pe","P/E (price-to-earnings)"],["eps","EPS ($)"],["pb","P/B (price-to-book)"],["ps","P/S (price-to-sales)"],["pcf","P/CF (price-to-cash-flow)"],["evebitda","EV/EBITDA"],["roe","ROE (%)"],["roa","ROA (%)"],["margin","Profit margin (%)"],["de","D/E (debt-to-equity)"],["debt","Total debt ($)"]];
+
+var WT=[["lead","Who is steering the ship?","Who are the CEO, chair and key executives? What is their track record, and how long have they been in the role?"],["built","Did they build the organisation?","Are they founders or hired in? What have they built, grown or turned around?"],["invest","What makes them investable?","For example: ownership stake, capital allocation, honesty with shareholders, consistency over time"]];
+
+function wProg(w){var d=w.d||{},m=0,t=0;WM.forEach(function(x){if(String(d[x[0]]||"").trim())m++});WT.concat([["trend"],["tech"]]).forEach(function(x){if(String(d[x[0]]||"").trim())t++});return m+" of "+WM.length+" figures &middot; "+t+" of "+(WT.length+2)+" written answers"}
+
+function wHead(w){return "<strong>"+esc(w.ticker)+"</strong> <span class='msg' style='margin:0'>"+esc(w.type)+(w.target>0?" &middot; target "+money(w.target):"")+"</span> <span class='msg' style='margin:0' data-prog>"+wProg(w)+"</span>"}
+
+function wSection(w){
+
+var d=w.d||{},id=esc(w.id);
+
+return "<details class='panel wsec' data-wid='"+id+"'"+(OPEN[w.id]?" open":"")+"><summary>"+wHead(w)+"</summary>"+
+
+"<div class='grid' style='margin-top:12px'><label>Target price ($)<input data-wf='target' type='number' step='any' min='0' value='"+(w.target>0?w.target:"")+"'></label><label>Notes<input data-wf='note' value='"+esc(w.note||"")+"' placeholder='Why I&#39;m watching it'></label></div>"+
+
+"<h3>Valuation and financial health</h3><div class='grid'>"+WM.map(function(x){return "<label>"+x[1]+"<input data-wd='"+x[0]+"' value='"+esc(d[x[0]]||"")+"' inputmode='decimal'></label>"}).join("")+"</div>"+
+
+"<h3>Leadership</h3>"+WT.map(function(x){return "<label class='tx'>"+x[1]+"<textarea class='nt' data-wd='"+x[0]+"' placeholder='"+esc(x[2])+"' aria-label='"+esc(w.ticker+": "+x[1])+"'>"+esc(d[x[0]]||"")+"</textarea></label>"}).join("")+
+
+"<h3>Industry outlook</h3><div class='grid'><label>Anticipated trajectory<select data-wd='dir'>"+["","Growing","Stable","Declining","Uncertain"].map(function(o){return "<option value='"+o+"'"+((d.dir||"")===o?" selected":"")+">"+(o||"Choose")+"</option>"}).join("")+"</select></label></div>"+
+
+"<label class='tx'>Why? What is driving the trajectory of this industry<textarea class='nt' data-wd='trend' placeholder='For example: demand, regulation, technology change, competition, interest rates' aria-label='"+esc(w.ticker+": industry trajectory and why")+"'>"+esc(d.trend||"")+"</textarea></label>"+
+
+"<h3>Technicals and decision</h3><label class='tx'>Technicals: is the price sitting in your buy zone?<textarea class='nt' data-wd='tech' placeholder='For example: where the price is against support and resistance, the trend, moving averages, and whether it is sitting in your buy zone' aria-label='"+esc(w.ticker+": technicals")+"'>"+esc(d.tech||"")+"</textarea></label>"+
+
+(chartLink(w)?"<div class='msg'>Check the chart: "+chartLink(w)+"</div>":"")+
+
+"<div class='panel' style='margin-top:14px'><strong>Considering your analysis and the technicals, is this a solid buy?</strong><div class='msg'>Yes moves it to Future holdings. No deletes it from your watchlist.</div><div class='row'><button data-wyes='"+id+"'>Yes, it's a solid buy</button><button class='ghost' data-wdel='"+id+"' aria-label='No, delete "+esc(w.ticker)+"'>No, delete it</button></div></div></details>"
+
+
+}
+
+function renderWatch(){
+
+$("watch-list").innerHTML=WATCH.length?WATCH.map(wSection).join(""):"<div class='panel'><div class='empty'>Nothing on your watchlist yet. Add a ticker above.</div></div>";
+
+document.querySelectorAll("#watch-list details[open] textarea").forEach(function(t){growEl(t,90)});
+
+}
+
+$("w-add").onclick=function(){
+
+var w={id:newId(),type:$("w-type").value.trim()||"Other",ticker:$("w-ticker").value.trim().toUpperCase(),target:parseFloat($("w-target").value),note:$("w-note").value.trim(),d:{}},m=$("w-msg");
+
+m.className="msg";
+
+if(!w.ticker){m.className="msg err";m.textContent="Enter a ticker or name.";return}
+
+if(!(w.target>0))w.target=0;
+
+WATCH.push(w);OPEN[w.id]=true;saveWatch();renderWatch();m.textContent="Added "+w.ticker+". Open its section below to fill in your research.";
+
+$("w-ticker").value="";$("w-target").value="";$("w-note").value="";
+
+};
+
+function wEdit(e){
+
+var el=e.target,g=el.getAttribute&&el.getAttribute.bind(el),sec=el.closest&&el.closest("[data-wid]");
+
+if(!g||!sec)return;
+
+var w=WATCH.filter(function(x){return x.id===sec.getAttribute("data-wid")})[0];if(!w)return;
+
+if(g("data-wd")){w.d[g("data-wd")]=el.value;if(el.tagName==="TEXTAREA")growEl(el,90)}
+
+else if(g("data-wf")==="target"){var n=parseFloat(el.value);w.target=n>0?n:0}
+
+else if(g("data-wf")==="note"){w.note=el.value}
+
+else return;
+
+saveWatch();sec.querySelector("summary").innerHTML=wHead(w);
+
+}
+
+$("watch-list").addEventListener("input",wEdit);
+
+$("watch-list").addEventListener("change",wEdit);
+
+$("watch-list").addEventListener("toggle",function(e){var el=e.target,id=el.getAttribute&&el.getAttribute("data-wid");if(!id)return;OPEN[id]=el.open;if(el.open)el.querySelectorAll("textarea").forEach(function(t){growEl(t,90)})},true);
+
+$("watch-list").addEventListener("click",function(e){var g=e.target.getAttribute&&e.target.getAttribute.bind(e.target);if(!g)return;var yes=g("data-wyes"),id=g("data-wdel")||yes;if(!id)return;var w=WATCH.filter(function(x){return x.id===id})[0];if(!w)return;
+
+if(yes){WATCH=WATCH.filter(function(x){return x.id!==id});delete OPEN[id];w.moved=new Date().toISOString();FUTURE.push(w);saveWatch();saveFuture();renderWatch();$("w-msg").className="msg";$("w-msg").textContent=w.ticker+" moved to Future holdings.";return}
+
+if(confirm("Delete "+w.ticker+" and everything you've written about it? This can't be undone.")){WATCH=WATCH.filter(function(x){return x.id!==id});delete OPEN[id];saveWatch();renderWatch()}});
+
+/* Future holdings */
+
+function renderFuture(){
+
+var c=$("future-list");
+
+c.innerHTML=FUTURE.length?FUTURE.map(function(w){
+
+var d=w.d||{},figs=WM.filter(function(x){return String(d[x[0]]||"").trim()}),txt=WT.concat([["trend","Industry trajectory: why"],["tech","Technicals"]]).filter(function(x){return String(d[x[0]]||"").trim()});
+
+return "<details class='panel wsec'><summary><strong>"+esc(w.ticker)+"</strong> <span class='msg' style='margin:0'>"+esc(w.type)+(w.target>0?" &middot; target "+money(w.target):"")+(w.moved?" &middot; added "+esc(fmtD(new Date(w.moved))):"")+"</span></summary>"+
+
+(w.note?"<div class='msg'>"+esc(w.note)+"</div>":"")+
+
+(figs.length?"<h3>Valuation and financial health</h3><div class='grid'>"+figs.map(function(x){return "<div><label>"+x[1]+"</label><strong>"+esc(d[x[0]])+"</strong></div>"}).join("")+"</div>":"")+
+
+(d.dir?"<h3>Industry outlook</h3><div><strong>"+esc(d.dir)+"</strong></div>":"")+
+
+txt.map(function(x){return "<h3>"+x[1].replace(/\?$/,"")+"</h3><div class='pw'>"+esc(d[x[0]])+"</div>"}).join("")+
+
+(chartLink(w)?"<div class='msg'>Chart: "+chartLink(w)+"</div>":"")+
+
+"<div class='row'><button class='ghost' data-fback='"+esc(w.id)+"'>Move back to watchlist</button><button class='del' data-fdel='"+esc(w.id)+"' aria-label='Remove "+esc(w.ticker)+" from future holdings'>Remove</button></div></details>"}).join(""):"<div class='panel'><div class='empty'>Nothing here yet.</div></div>";
+
+}
+
+$("future-list").addEventListener("click",function(e){var g=e.target.getAttribute&&e.target.getAttribute.bind(e.target);if(!g)return;var b=g("data-fback"),r=g("data-fdel"),id=b||r;if(!id)return;var w=FUTURE.filter(function(x){return x.id===id})[0];if(!w)return;
+
+if(b){FUTURE=FUTURE.filter(function(x){return x.id!==id});delete w.moved;WATCH.push(w);saveWatch();saveFuture();renderFuture();return}
+
+if(confirm("Remove "+w.ticker+" and everything you've written about it? This can't be undone.")){FUTURE=FUTURE.filter(function(x){return x.id!==id});saveFuture();renderFuture()}});
+
 /* Backup */
-$("copy").onclick=function(){var t=JSON.stringify({rows:rows,returns:RET,fees:FEE,notes:nb.value,thesis:THESIS});$("bk").value=t;
+$("copy").onclick=function(){var t=JSON.stringify({rows:rows,returns:RET,fees:FEE,notes:nb.value,thesis:THESIS,watch:WATCH,future:FUTURE});$("bk").value=t;
   var done=function(){$("bk-msg").textContent="Backup copied."};
   try{navigator.clipboard.writeText(t).then(done,function(){$("bk").select();$("bk-msg").textContent="Select and copy the text above."})}catch(e){$("bk").select();$("bk-msg").textContent="Select and copy the text above."}};
-$("restore").onclick=function(){try{var d=JSON.parse($("bk").value);if(Array.isArray(d)){rows=d}else if(d&&Array.isArray(d.rows)){rows=d.rows;RET=d.returns||{};FEE=d.fees||{};fixFee();saveRet();if(d.thesis&&typeof d.thesis==="object"){THESIS=d.thesis;saveTh()}if(typeof d.notes==="string"){nb.value=d.notes;try{localStorage.setItem("holdings.notes",d.notes)}catch(e){}grow()}}else throw 0;save();render();$("bk-msg").textContent="Restored "+rows.length+" transactions."}catch(e){$("bk-msg").textContent="That text isn't a valid backup."}};
+$("restore").onclick=function(){try{var d=JSON.parse($("bk").value);if(Array.isArray(d)){rows=d}else if(d&&Array.isArray(d.rows)){rows=d.rows;RET=d.returns||{};FEE=d.fees||{};fixFee();saveRet();if(d.thesis&&typeof d.thesis==="object"){THESIS=d.thesis;saveTh()}if(Array.isArray(d.watch)){WATCH=d.watch;fixW();saveWatch();renderWatch()}if(Array.isArray(d.future)){FUTURE=cleanW(d.future);saveFuture();renderFuture()}if(typeof d.notes==="string"){nb.value=d.notes;try{localStorage.setItem("holdings.notes",d.notes)}catch(e){}grow()}}else throw 0;save();render();$("bk-msg").textContent="Restored "+rows.length+" transactions."}catch(e){$("bk-msg").textContent="That text isn't a valid backup."}};
 $("wipe").onclick=function(){if(confirm("Delete all holdings and transactions from this browser?")){rows=[];RET={};FEE={};save();saveRet();render();$("bk-msg").textContent="All data deleted."}};
 
 $("chart-site").innerHTML=Object.keys(CHARTS).map(function(k){return "<option"+(k===SITE?" selected":"")+">"+k+"</option>"}).join("");
@@ -373,6 +559,8 @@ window.addEventListener("beforeprint",function(){nb.style.height="auto";$("notes
 window.addEventListener("afterprint",function(){document.documentElement.classList.remove("print-report");grow()});
 $("tab-cur").onclick=function(){setTab("cur")};
 $("tab-fut").onclick=function(){setTab("fut")};
+$("tab-watch").onclick=function(){setTab("watch")};
+$("tab-comms").onclick=function(){setTab("comms")};
 $("newsletter").onclick=function(e){e.preventDefault()};
 render();grow();route();
 })();
